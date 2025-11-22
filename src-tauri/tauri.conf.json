@@ -2,7 +2,7 @@
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "ct-l",
   "version": "0.1.0",
-  "identifier": "com.character.tavern.loader.app",
+  "identifier": "com.character.tavern.loader",
   "build": {
     "devUrl": "https://character-tavern.com/",
     "frontendDist": "https://character-tavern.com/"
