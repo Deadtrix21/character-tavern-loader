@@ -1,9 +1,11 @@
-package com.character.tavern.loader.app
+package com.character.tavern.loader
+
 import android.os.Bundle
 import androidx.activity.enableEdgeToEdge
 import android.os.Build
 import android.view.View
 import android.view.WindowInsets
+
 
 class MainActivity : TauriActivity() {
   override fun onCreate(savedInstanceState: Bundle?) {
