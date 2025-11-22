@@ -1,8 +1,6 @@
-package com.character_tavern_loader.app
-
+package com.character.tavern.loader.app
 import android.os.Bundle
 import androidx.activity.enableEdgeToEdge
-
 import android.os.Build
 import android.view.View
 import android.view.WindowInsets
@@ -11,8 +9,6 @@ class MainActivity : TauriActivity() {
   override fun onCreate(savedInstanceState: Bundle?) {
     enableEdgeToEdge()
     super.onCreate(savedInstanceState)
-
-    // Ensure content is not drawn under system bars
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT_WATCH) {
       window.decorView.setOnApplyWindowInsetsListener { v, insets ->
         v.setPadding(
