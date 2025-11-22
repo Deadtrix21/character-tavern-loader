@@ -1,0 +1,52 @@
+
+name: Tauri IOS Build
+permissions:
+  contents: write
+
+on:
+  push:
+    tags:
+      - 'I*.*.*'
+  workflow_dispatch:
+
+jobs:
+  build-ios:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+      - name: Install JS dependencies
+        run: yarn install --frozen-lockfile
+      - name: Build iOS
+        run: echo "Build iOS here" # Replace with actual iOS build command
+      # Placeholder: Add code signing step for iOS
+      # Example:
+      # - name: Sign iOS Artifact
+      #   run: codesign ...
+      - name: Upload iOS Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-artifacts
+          path: ios-out/* # Adjust to your actual output
+
+  release:
+    needs: [build-ios]
+    runs-on: macos-latest
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/I')
+    steps:
+      - name: Download iOS Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: ios-artifacts
+          path: ./artifacts/ios
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ./artifacts/ios/**/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

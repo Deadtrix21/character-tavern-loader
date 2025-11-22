@@ -1,0 +1,52 @@
+
+name: Tauri Mac Os Build
+permissions:
+  contents: write
+  
+on:
+  push:
+    tags:
+      - 'M*.*.*'
+  workflow_dispatch:
+
+jobs:
+  build-macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+      - name: Install JS dependencies
+        run: yarn install --frozen-lockfile
+      - name: Build MacOS
+        run: yarn tauri build --bundles dmg
+      # Placeholder: Add code signing step for MacOS DMG
+      # Example:
+      # - name: Sign MacOS DMG
+      #   run: codesign --sign "Developer ID Application: ..." src-tauri/target/release/bundle/dmg/*.dmg
+      - name: Upload MacOS Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-artifacts
+          path: src-tauri/target/release/bundle/dmg/*.dmg
+
+  release:
+    needs: [build-macos]
+    runs-on: macos-latest
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/M')
+    steps:
+      - name: Download MacOS Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: macos-artifacts
+          path: ./artifacts/macos
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ./artifacts/macos/**/*.dmg
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

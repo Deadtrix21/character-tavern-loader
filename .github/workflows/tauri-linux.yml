@@ -1,0 +1,68 @@
+
+name: Tauri Linux Build
+permissions:
+  contents: write
+  
+on:
+  push:
+    tags:
+      - 'L*.*.*'
+  workflow_dispatch:
+
+jobs:
+  build-linux:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.0-dev build-essential libglib2.0-dev libssl-dev libgtk-3-dev squashfs-tools libayatana-appindicator3-dev librsvg2-dev pkg-config python3 python3-pip unzip javascriptcoregtk-4.1-dev libsoup-3.0-dev
+      - name: Debug pkg-config and glib
+        run: |
+          echo "glib-2.0.pc locations:"
+          dpkg -L libglib2.0-dev | grep glib-2.0.pc || true
+          find /usr -name glib-2.0.pc || true
+          echo "pkg-config glib-2.0 output:"
+          pkg-config --cflags --libs glib-2.0 || true
+          echo "PKG_CONFIG_PATH=$PKG_CONFIG_PATH"
+      - name: Set PKG_CONFIG_PATH
+        run: echo "PKG_CONFIG_PATH=/usr/lib/x86_64-linux-gnu/pkgconfig:/usr/share/pkgconfig" >> $GITHUB_ENV
+      - name: Install yarn
+        run: npm install -g yarn
+      - name: Install JS dependencies
+        run: yarn install --frozen-lockfile
+      - name: Build Linux (.deb, AppImage)
+        run: yarn tauri build --bundles deb,appimage
+      - name: Upload Linux Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-artifacts
+          path: |
+            src-tauri/target/release/bundle/deb/*.deb
+            src-tauri/target/release/bundle/appimage/*.AppImage
+
+  release:
+    needs: [build-linux]
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/L')
+    steps:
+      - name: Download Linux Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: linux-artifacts
+          path: ./artifacts/linux
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            ./artifacts/linux/**/*.deb
+            ./artifacts/linux/**/*.AppImage
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -1,0 +1,68 @@
+
+name: Tauri ANDRIOD Build
+permissions:
+  contents: write
+
+on:
+  push:
+    tags:
+      - 'A*.*.*'
+  workflow_dispatch:
+
+jobs:
+  build-android:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+      - name: Install yarn
+        run: npm install -g yarn
+      - name: Install Android SDK
+        uses: android-actions/setup-android@v3
+      - name: Install JS dependencies
+        run: yarn install --frozen-lockfile
+      - name: Build Android APK
+        run: yarn tauri android build
+      - name: Sign Android APK
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          # Decode keystore (set these secrets in your repo: ANDROID_KEYSTORE_BASE64, ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_ALIAS, ANDROID_KEY_PASSWORD)
+          echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > /tmp/keystore.jks
+          # Find APK
+          APK_PATH=$(find src-tauri/gen/android/app/build/outputs/apk/universal/release -name "*.apk" | head -n 1)
+          # Sign APK
+          jarsigner -verbose -sigalg SHA256withRSA -digestalg SHA-256 -keystore /tmp/keystore.jks -storepass "$ANDROID_KEYSTORE_PASSWORD" -keypass "$ANDROID_KEY_PASSWORD" "$APK_PATH" "$ANDROID_KEY_ALIAS"
+          # Align APK
+          ZIPALIGN=$(find $ANDROID_HOME/build-tools -name zipalign | sort -V | tail -n 1)
+          "$ZIPALIGN" -v 4 "$APK_PATH" "${APK_PATH%.apk}-signed.apk"
+      - name: Upload Android Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-artifacts
+          path: src-tauri/gen/android/app/build/outputs/apk/universal/release/*-signed.apk
+
+  release:
+    needs: [build-android]
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/A')
+    steps:
+      - name: Download Android Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: android-artifacts
+          path: ./artifacts/android
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ./artifacts/android/**/*.apk
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
